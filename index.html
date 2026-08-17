@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BWG - Story & Anime AI Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        black: '#000000',
+                        white: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body class="bg-black text-white font-sans antialiased h-screen flex flex-col justify-between overflow-hidden selection:bg-white selection:text-black">
+
+    <!-- Header -->
+    <header class="border-b border-zinc-800 px-6 py-4 flex items-center justify-between bg-black z-10">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 bg-white text-black font-black flex items-center justify-center rounded tracking-tighter text-sm">
+                BWG
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wider uppercase">BWG Bot</h1>
+                <p class="text-xs text-zinc-500 font-mono">Anime & Interactive Story Simulation</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button id="clearChatBtn" title="Clear Chat History" class="p-2 border border-zinc-800 hover:border-zinc-500 rounded text-xs font-mono transition text-zinc-400 hover:text-white">
+                Clear
+            </button>
+            <button id="openSettingsBtn" title="Open Settings" class="p-2 border border-zinc-800 hover:border-white rounded text-xs font-mono transition text-white">
+                ⚙️ Settings
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Chat Window -->
+    <main id="chatWindow" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 max-w-4xl w-full mx-auto">
+        <!-- Messages rendered dynamically -->
+    </main>
+
+    <!-- Loading Indicator -->
+    <div id="typingIndicator" class="hidden max-w-4xl w-full mx-auto px-6 py-2 text-xs font-mono text-zinc-500 animate-pulse flex items-center space-x-2">
+        <span class="inline-block w-2 h-2 bg-white rounded-full"></span>
+        <span>BWG is thinking...</span>
+    </div>
+
+    <!-- Input Bar -->
+    <footer class="border-t border-zinc-800 p-4 bg-black">
+        <form id="chatForm" class="max-w-4xl mx-auto flex gap-2">
+            <textarea id="userInput" rows="1" placeholder="Type your story choice or prompt here..." class="flex-1 bg-zinc-950 border border-zinc-800 rounded px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white resize-none font-sans"></textarea>
+            <button type="submit" id="sendBtn" class="bg-white text-black font-bold px-6 py-3 rounded text-sm hover:bg-zinc-200 transition uppercase tracking-wider disabled:opacity-50">
+                Send
+            </button>
+        </form>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-6 space-y-5">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <h2 class="text-base font-bold uppercase tracking-wider">Configuration Settings</h2>
+                <button id="closeSettingsBtn" class="text-zinc-500 hover:text-white font-mono text-sm">✕</button>
+            </div>
+            
+            <div class="space-y-4 text-xs font-mono">
+                <div>
+                    <label class="block mb-1 text-zinc-400">OpenRouter API Key <span class="text-red-500">*</span></label>
+                    <input type="password" id="apiKeyInput" placeholder="sk-or-v1-..." class="w-full bg-black border border-zinc-800 rounded p-2 text-white focus:border-white focus:outline-none">
+                    <p class="text-[10px] text-zinc-600 mt-1">Get your key from openrouter.ai</p>
+                </div>
+
+                <div>
+                    <label class="block mb-1 text-zinc-400">Model ID</label>
+                    <input type="text" id="modelInput" placeholder="openrouter/free" class="w-full bg-black border border-zinc-800 rounded p-2 text-white focus:border-white focus:outline-none">
+                    <p class="text-[10px] text-zinc-600 mt-1">Default: openrouter/free (auto-routes to available free models)</p>
+                </div>
+
+                <div>
+                    <label class="block mb-1 text-zinc-400">System Prompt / Persona</label>
+                    <textarea id="systemPromptInput" rows="4" class="w-full bg-black border border-zinc-800 rounded p-2 text-white focus:border-white focus:outline-none resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+                <button id="saveSettingsBtn" class="bg-white text-black font-bold px-4 py-2 rounded text-xs uppercase tracking-wider hover:bg-zinc-200 transition">
+                    Save & Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        const DEFAULT_MODEL = 'openrouter/free';
+        const DEFAULT_SYSTEM_PROMPT = `You are BWG, an interactive anime and story simulation guide. You engage the user with immersive narrative scenarios, "Anime What-If?" choices, and rich storytelling. Stay in character as a sleek, witty, and high-energy narrative companion.`;
+
+        let apiKey = localStorage.getItem('bwg_api_key') || '';
+        let model = localStorage.getItem('bwg_model') || DEFAULT_MODEL;
+        let systemPrompt = localStorage.getItem('bwg_system_prompt') || DEFAULT_SYSTEM_PROMPT;
+        let chatHistory = JSON.parse(localStorage.getItem('bwg_chat_history') || '[]');
+
+        const chatWindow = document.getElementById('chatWindow');
+        const chatForm = document.getElementById('chatForm');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const clearChatBtn = document.getElementById('clearChatBtn');
+        
+        const settingsModal = document.getElementById('settingsModal');
+        const openSettingsBtn = document.getElementById('openSettingsBtn');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const modelInput = document.getElementById('modelInput');
+        const systemPromptInput = document.getElementById('systemPromptInput');
+
+        apiKeyInput.value = apiKey;
+        modelInput.value = model;
+        systemPromptInput.value = systemPrompt;
+
+        if (chatHistory.length === 0) {
+            chatHistory.push({
+                role: 'assistant',
+                content: `Welcome to **BWG**. What kind of story or anime "what-if" scenario are we diving into today?`
+            });
+            saveChatHistory();
+        }
+        renderChat();
+
+        openSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+        saveSettingsBtn.addEventListener('click', () => {
+            apiKey = apiKeyInput.value.trim();
+            model = modelInput.value.trim() || DEFAULT_MODEL;
+            systemPrompt = systemPromptInput.value.trim() || DEFAULT_SYSTEM_PROMPT;
+
+            localStorage.setItem('bwg_api_key', apiKey);
+            localStorage.setItem('bwg_model', model);
+            localStorage.setItem('bwg_system_prompt', systemPrompt);
+
+            settingsModal.classList.add('hidden');
+        });
+
+        clearChatBtn.addEventListener('click', () => {
+            if (confirm('Clear chat history?')) {
+                chatHistory = [{
+                    role: 'assistant',
+                    content: `Welcome back to **BWG**. What scenario are we simulating next?`
+                }];
+                saveChatHistory();
+                renderChat();
+            }
+        });
+
+        userInput.addEventListener('input', () => {
+            userInput.style.height = 'auto';
+            userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
+        });
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            if (!apiKey) {
+                alert('Please enter your OpenRouter API Key in ⚙️ Settings first!');
+                settingsModal.classList.remove('hidden');
+                return;
+            }
+
+            chatHistory.push({ role: 'user', content: text });
+            saveChatHistory();
+            renderChat();
+
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            setLoading(true);
+
+            try {
+                const messages = [
+                    { role: 'system', content: systemPrompt },
+                    ...chatHistory
+                ];
+
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': window.location.href,
+                        'X-Title': 'BWG App'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: messages
+                    })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error?.message || `API Error (${res.status})`);
+                }
+
+                const botReply = data.choices[0]?.message?.content || 'No response generated.';
+                chatHistory.push({ role: 'assistant', content: botReply });
+                saveChatHistory();
+                renderChat();
+
+            } catch (err) {
+                chatHistory.push({ 
+                    role: 'assistant', 
+                    content: `⚠️ **Error:** ${err.message}\n\n*Tip: Check your API key or set the Model ID in settings to \`openrouter/free\`.*` 
+                });
+                saveChatHistory();
+                renderChat();
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function renderChat() {
+            chatWindow.innerHTML = '';
+            chatHistory.forEach((msg) => {
+                const isUser = msg.role === 'user';
+                const wrapper = document.createElement('div');
+                wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+
+                const bubble = document.createElement('div');
+                bubble.className = isUser 
+                    ? 'bg-white text-black font-medium max-w-[85%] md:max-w-[75%] rounded-lg px-4 py-3 text-sm shadow-md' 
+                    : 'bg-zinc-950 border border-zinc-800 text-zinc-100 max-w-[85%] md:max-w-[75%] rounded-lg px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap';
+
+                bubble.innerHTML = formatMarkdown(msg.content);
+                wrapper.appendChild(bubble);
+                chatWindow.appendChild(wrapper);
+            });
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function saveChatHistory() {
+            localStorage.setItem('bwg_chat_history', JSON.stringify(chatHistory));
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                typingIndicator.classList.remove('hidden');
+                sendBtn.disabled = true;
+            } else {
+                typingIndicator.classList.add('hidden');
+                sendBtn.disabled = false;
+            }
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function formatMarkdown(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code class="bg-zinc-900 border border-zinc-800 px-1 py-0.5 rounded font-mono text-xs">$1</code>');
+        }
+    </script>
+</body>
+  </html>
