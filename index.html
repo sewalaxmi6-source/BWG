@@ -1,282 +1,634 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BWG - Story & Anime AI Bot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        black: '#000000',
-                        white: '#ffffff',
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #000; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BWG Chat</title>
+<style>
+  :root{
+    --red:#d81f2a;
+    --black:#111111;
+    --white:#ffffff;
+    --grey-bg:#f7f7f7;
+    --grey-border:#e3e3e3;
+    --grey-text:#6b6b6b;
+    --hover:#efefef;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--white);
+    color:var(--black);
+    display:flex;
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* ===== Sidebar ===== */
+  #sidebar{
+    width:260px;
+    min-width:260px;
+    background:var(--grey-bg);
+    border-right:1px solid var(--grey-border);
+    display:flex;
+    flex-direction:column;
+    transition:margin-left .2s ease;
+  }
+  #sidebar.collapsed{margin-left:-260px;}
+  .new-chat-btn{
+    margin:14px;
+    padding:10px 14px;
+    background:var(--black);
+    color:var(--white);
+    border:none;
+    border-radius:8px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .new-chat-btn:hover{background:#2b2b2b;}
+  #chat-list{
+    flex:1;
+    overflow-y:auto;
+    padding:0 8px;
+  }
+  .chat-item{
+    padding:10px 10px;
+    border-radius:6px;
+    font-size:13.5px;
+    color:#333;
+    cursor:pointer;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:6px;
+  }
+  .chat-item:hover{background:var(--hover);}
+  .chat-item.active{background:var(--grey-border);font-weight:600;}
+  .chat-item .del{
+    opacity:0;
+    font-size:12px;
+    color:var(--grey-text);
+    padding:2px 5px;
+  }
+  .chat-item:hover .del{opacity:1;}
+  .chat-item .del:hover{color:var(--red);}
+
+  #sidebar-footer{
+    border-top:1px solid var(--grey-border);
+    padding:10px;
+  }
+  .settings-btn{
+    width:100%;
+    padding:9px 10px;
+    background:transparent;
+    border:none;
+    border-radius:6px;
+    text-align:left;
+    font-size:13.5px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--black);
+  }
+  .settings-btn:hover{background:var(--hover);}
+
+  /* ===== Main ===== */
+  #main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    position:relative;
+  }
+  #topbar{
+    height:56px;
+    min-height:56px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 16px;
+    border-bottom:1px solid var(--grey-border);
+  }
+  #topbar-left{display:flex;align-items:center;gap:10px;}
+  #toggle-sidebar{
+    background:none;border:none;cursor:pointer;
+    font-size:18px;color:var(--black);
+    padding:4px 6px;border-radius:6px;
+  }
+  #toggle-sidebar:hover{background:var(--hover);}
+  #chat-title{font-size:14px;font-weight:600;color:#333;}
+
+  #topbar-right{display:flex;align-items:center;gap:10px;}
+  .icon-btn{
+    background:none;
+    border:1px solid var(--grey-border);
+    width:34px;height:34px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:16px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--black);
+  }
+  .icon-btn:hover{background:var(--hover);}
+  .icon-btn.active-toggle{background:var(--black);color:var(--white);border-color:var(--black);}
+
+  .logo-box{
+    background:var(--red);
+    color:var(--black);
+    font-weight:800;
+    font-size:13px;
+    letter-spacing:.5px;
+    padding:6px 10px;
+    border-radius:6px;
+    line-height:1;
+  }
+
+  /* ===== Messages ===== */
+  #chat-area{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  #messages{
+    flex:1;
+    overflow-y:auto;
+    padding:24px 0 12px 0;
+  }
+  #messages-inner{
+    max-width:720px;
+    margin:0 auto;
+    padding:0 20px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+  .msg{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    max-width:100%;
+  }
+  .msg .role{
+    font-size:11.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--grey-text);
+  }
+  .msg.user .role{color:var(--red);}
+  .msg .bubble{
+    font-size:15px;
+    line-height:1.55;
+    white-space:pre-wrap;
+    word-wrap:break-word;
+  }
+  .empty-state{
+    margin:auto;
+    text-align:center;
+    color:var(--grey-text);
+    max-width:400px;
+  }
+  .empty-state .logo-box{font-size:22px;padding:10px 16px;display:inline-block;margin-bottom:14px;}
+
+  /* ===== Input ===== */
+  #input-bar{
+    border-top:1px solid var(--grey-border);
+    padding:14px 20px 18px 20px;
+  }
+  #input-inner{
+    max-width:720px;
+    margin:0 auto;
+    display:flex;
+    gap:8px;
+    align-items:flex-end;
+    background:var(--grey-bg);
+    border:1px solid var(--grey-border);
+    border-radius:14px;
+    padding:8px 8px 8px 16px;
+  }
+  #input-box{
+    flex:1;
+    border:none;
+    background:transparent;
+    resize:none;
+    font-size:15px;
+    font-family:inherit;
+    max-height:160px;
+    padding:6px 0;
+    outline:none;
+  }
+  #send-btn{
+    background:var(--black);
+    color:var(--white);
+    border:none;
+    border-radius:10px;
+    width:38px;height:38px;
+    cursor:pointer;
+    font-size:16px;
+    flex-shrink:0;
+  }
+  #send-btn:disabled{opacity:.4;cursor:default;}
+  #send-btn:hover:not(:disabled){background:#2b2b2b;}
+
+  /* ===== Notepad drawer ===== */
+  #notepad{
+    width:0;
+    overflow:hidden;
+    border-left:1px solid var(--grey-border);
+    background:var(--grey-bg);
+    transition:width .2s ease;
+    display:flex;
+    flex-direction:column;
+  }
+  #notepad.open{width:320px;}
+  #notepad-header{
+    padding:14px 16px 10px 16px;
+    font-size:13px;
+    font-weight:700;
+    color:var(--grey-text);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+  }
+  #notepad-text{
+    flex:1;
+    border:none;
+    background:transparent;
+    resize:none;
+    padding:0 16px 16px 16px;
+    font-size:14px;
+    line-height:1.6;
+    font-family:inherit;
+    outline:none;
+    color:#222;
+  }
+  #notepad-saved{
+    font-size:11px;
+    color:var(--grey-text);
+    padding:0 16px 12px 16px;
+  }
+
+  /* ===== Settings modal ===== */
+  #overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,.35);
+    display:none;
+    align-items:center;justify-content:center;
+    z-index:50;
+  }
+  #overlay.open{display:flex;}
+  #settings-modal{
+    background:var(--white);
+    width:420px;
+    max-width:90vw;
+    border-radius:14px;
+    padding:22px;
+    box-shadow:0 10px 40px rgba(0,0,0,.2);
+  }
+  #settings-modal h2{
+    margin:0 0 4px 0;
+    font-size:17px;
+  }
+  #settings-modal .sub{
+    font-size:12.5px;
+    color:var(--grey-text);
+    margin-bottom:18px;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--grey-border);
+    border-radius:8px;
+    font-size:13.5px;
+    font-family:inherit;
+    outline:none;
+  }
+  .field input:focus, .field select:focus{border-color:var(--red);}
+  .field .hint{font-size:11.5px;color:var(--grey-text);margin-top:5px;}
+  .field .hint a{color:var(--red);}
+  #settings-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:18px;
+  }
+  .btn-secondary{
+    padding:9px 14px;
+    background:transparent;
+    border:1px solid var(--grey-border);
+    border-radius:8px;
+    cursor:pointer;
+    font-size:13.5px;
+  }
+  .btn-secondary:hover{background:var(--hover);}
+  .btn-primary{
+    padding:9px 14px;
+    background:var(--black);
+    color:var(--white);
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:13.5px;
+    font-weight:600;
+  }
+  .btn-primary:hover{background:#2b2b2b;}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:#d5d5d5;border-radius:4px;}
+</style>
 </head>
-<body class="bg-black text-white font-sans antialiased h-screen flex flex-col justify-between overflow-hidden selection:bg-white selection:text-black">
+<body>
 
-    <!-- Header -->
-    <header class="border-b border-zinc-800 px-6 py-4 flex items-center justify-between bg-black z-10">
-        <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 bg-white text-black font-black flex items-center justify-center rounded tracking-tighter text-sm">
-                BWG
-            </div>
-            <div>
-                <h1 class="font-bold text-lg tracking-wider uppercase">BWG Bot</h1>
-                <p class="text-xs text-zinc-500 font-mono">Anime & Interactive Story Simulation</p>
-            </div>
-        </div>
-        <div class="flex items-center space-x-2">
-            <button id="clearChatBtn" title="Clear Chat History" class="p-2 border border-zinc-800 hover:border-zinc-500 rounded text-xs font-mono transition text-zinc-400 hover:text-white">
-                Clear
-            </button>
-            <button id="openSettingsBtn" title="Open Settings" class="p-2 border border-zinc-800 hover:border-white rounded text-xs font-mono transition text-white">
-                ⚙️ Settings
-            </button>
-        </div>
-    </header>
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <button class="new-chat-btn" onclick="newChat()">+ New chat</button>
+    <div id="chat-list"></div>
+    <div id="sidebar-footer">
+      <button class="settings-btn" onclick="openSettings()">⚙️ Settings</button>
+    </div>
+  </div>
 
-    <!-- Main Chat Window -->
-    <main id="chatWindow" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 max-w-4xl w-full mx-auto">
-        <!-- Messages rendered dynamically -->
-    </main>
-
-    <!-- Loading Indicator -->
-    <div id="typingIndicator" class="hidden max-w-4xl w-full mx-auto px-6 py-2 text-xs font-mono text-zinc-500 animate-pulse flex items-center space-x-2">
-        <span class="inline-block w-2 h-2 bg-white rounded-full"></span>
-        <span>BWG is thinking...</span>
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <div id="topbar-left">
+        <button id="toggle-sidebar" onclick="toggleSidebar()">☰</button>
+        <span id="chat-title">New chat</span>
+      </div>
+      <div id="topbar-right">
+        <button class="icon-btn" id="notepad-toggle" onclick="toggleNotepad()" title="Notepad">✏️</button>
+        <div class="logo-box">BWG</div>
+      </div>
     </div>
 
-    <!-- Input Bar -->
-    <footer class="border-t border-zinc-800 p-4 bg-black">
-        <form id="chatForm" class="max-w-4xl mx-auto flex gap-2">
-            <textarea id="userInput" rows="1" placeholder="Type your story choice or prompt here..." class="flex-1 bg-zinc-950 border border-zinc-800 rounded px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white resize-none font-sans"></textarea>
-            <button type="submit" id="sendBtn" class="bg-white text-black font-bold px-6 py-3 rounded text-sm hover:bg-zinc-200 transition uppercase tracking-wider disabled:opacity-50">
-                Send
-            </button>
-        </form>
-    </footer>
+    <div id="chat-area">
+      <div id="messages">
+        <div id="messages-inner"></div>
+      </div>
 
-    <!-- Settings Modal -->
-    <div id="settingsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-6 space-y-5">
-            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
-                <h2 class="text-base font-bold uppercase tracking-wider">Configuration Settings</h2>
-                <button id="closeSettingsBtn" class="text-zinc-500 hover:text-white font-mono text-sm">✕</button>
-            </div>
-            
-            <div class="space-y-4 text-xs font-mono">
-                <div>
-                    <label class="block mb-1 text-zinc-400">OpenRouter API Key <span class="text-red-500">*</span></label>
-                    <input type="password" id="apiKeyInput" placeholder="sk-or-v1-..." class="w-full bg-black border border-zinc-800 rounded p-2 text-white focus:border-white focus:outline-none">
-                    <p class="text-[10px] text-zinc-600 mt-1">Get your key from openrouter.ai</p>
-                </div>
-
-                <div>
-                    <label class="block mb-1 text-zinc-400">Model ID</label>
-                    <input type="text" id="modelInput" placeholder="openrouter/free" class="w-full bg-black border border-zinc-800 rounded p-2 text-white focus:border-white focus:outline-none">
-                    <p class="text-[10px] text-zinc-600 mt-1">Default: openrouter/free (auto-routes to available free models)</p>
-                </div>
-
-                <div>
-                    <label class="block mb-1 text-zinc-400">System Prompt / Persona</label>
-                    <textarea id="systemPromptInput" rows="4" class="w-full bg-black border border-zinc-800 rounded p-2 text-white focus:border-white focus:outline-none resize-none"></textarea>
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2 border-t border-zinc-800">
-                <button id="saveSettingsBtn" class="bg-white text-black font-bold px-4 py-2 rounded text-xs uppercase tracking-wider hover:bg-zinc-200 transition">
-                    Save & Close
-                </button>
-            </div>
-        </div>
+      <!-- NOTEPAD -->
+      <div id="notepad">
+        <div id="notepad-header">Notepad</div>
+        <textarea id="notepad-text" placeholder="Jot down anything worth keeping — ideas, facts from the chat, notes for later..."></textarea>
+        <div id="notepad-saved">Saved automatically</div>
+      </div>
     </div>
 
-    <!-- Application Script -->
-    <script>
-        const DEFAULT_MODEL = 'openrouter/free';
-        const DEFAULT_SYSTEM_PROMPT = `You are BWG, an interactive anime and story simulation guide. You engage the user with immersive narrative scenarios, "Anime What-If?" choices, and rich storytelling. Stay in character as a sleek, witty, and high-energy narrative companion.`;
+    <div id="input-bar">
+      <div id="input-inner">
+        <textarea id="input-box" rows="1" placeholder="Message BWG..." onkeydown="handleKeydown(event)" oninput="autoGrow(this)"></textarea>
+        <button id="send-btn" onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+  </div>
 
-        let apiKey = localStorage.getItem('bwg_api_key') || '';
-        let model = localStorage.getItem('bwg_model') || DEFAULT_MODEL;
-        let systemPrompt = localStorage.getItem('bwg_system_prompt') || DEFAULT_SYSTEM_PROMPT;
-        let chatHistory = JSON.parse(localStorage.getItem('bwg_chat_history') || '[]');
+  <!-- SETTINGS MODAL -->
+  <div id="overlay">
+    <div id="settings-modal">
+      <h2>Settings</h2>
+      <div class="sub">Connect your OpenRouter account to start chatting.</div>
 
-        const chatWindow = document.getElementById('chatWindow');
-        const chatForm = document.getElementById('chatForm');
-        const userInput = document.getElementById('userInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const typingIndicator = document.getElementById('typingIndicator');
-        const clearChatBtn = document.getElementById('clearChatBtn');
-        
-        const settingsModal = document.getElementById('settingsModal');
-        const openSettingsBtn = document.getElementById('openSettingsBtn');
-        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        const modelInput = document.getElementById('modelInput');
-        const systemPromptInput = document.getElementById('systemPromptInput');
+      <div class="field">
+        <label>OpenRouter API key</label>
+        <input type="password" id="api-key-input" placeholder="sk-or-v1-...">
+        <div class="hint">Get a key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>. Stored only in this browser.</div>
+      </div>
 
-        apiKeyInput.value = apiKey;
-        modelInput.value = model;
-        systemPromptInput.value = systemPrompt;
+      <div class="field">
+        <label>Model</label>
+        <input type="text" id="model-input" placeholder="e.g. openai/gpt-4o-mini, anthropic/claude-3.5-sonnet">
+        <div class="hint">Any model ID from <a href="https://openrouter.ai/models" target="_blank">openrouter.ai/models</a>.</div>
+      </div>
 
-        if (chatHistory.length === 0) {
-            chatHistory.push({
-                role: 'assistant',
-                content: `Welcome to **BWG**. What kind of story or anime "what-if" scenario are we diving into today?`
-            });
-            saveChatHistory();
-        }
-        renderChat();
+      <div id="settings-actions">
+        <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+        <button class="btn-primary" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+  </div>
 
-        openSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
-        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
-        saveSettingsBtn.addEventListener('click', () => {
-            apiKey = apiKeyInput.value.trim();
-            model = modelInput.value.trim() || DEFAULT_MODEL;
-            systemPrompt = systemPromptInput.value.trim() || DEFAULT_SYSTEM_PROMPT;
+<script>
+  // ---------- State ----------
+  let chats = JSON.parse(localStorage.getItem('bwg_chats') || '[]');
+  let activeChatId = localStorage.getItem('bwg_active_chat') || null;
+  let settings = JSON.parse(localStorage.getItem('bwg_settings') || '{}');
 
-            localStorage.setItem('bwg_api_key', apiKey);
-            localStorage.setItem('bwg_model', model);
-            localStorage.setItem('bwg_system_prompt', systemPrompt);
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
-            settingsModal.classList.add('hidden');
-        });
+  function saveChats(){ localStorage.setItem('bwg_chats', JSON.stringify(chats)); }
+  function saveActive(){ localStorage.setItem('bwg_active_chat', activeChatId || ''); }
 
-        clearChatBtn.addEventListener('click', () => {
-            if (confirm('Clear chat history?')) {
-                chatHistory = [{
-                    role: 'assistant',
-                    content: `Welcome back to **BWG**. What scenario are we simulating next?`
-                }];
-                saveChatHistory();
-                renderChat();
-            }
-        });
+  function getActiveChat(){
+    return chats.find(c => c.id === activeChatId);
+  }
 
-        userInput.addEventListener('input', () => {
-            userInput.style.height = 'auto';
-            userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
-        });
+  // ---------- Sidebar / chat list ----------
+  function renderChatList(){
+    const list = document.getElementById('chat-list');
+    list.innerHTML = '';
+    chats.slice().reverse().forEach(chat => {
+      const item = document.createElement('div');
+      item.className = 'chat-item' + (chat.id === activeChatId ? ' active' : '');
+      item.onclick = () => selectChat(chat.id);
+      const title = document.createElement('span');
+      title.textContent = chat.title || 'New chat';
+      title.style.overflow = 'hidden';
+      title.style.textOverflow = 'ellipsis';
+      const del = document.createElement('span');
+      del.className = 'del';
+      del.textContent = '✕';
+      del.onclick = (e) => { e.stopPropagation(); deleteChat(chat.id); };
+      item.appendChild(title);
+      item.appendChild(del);
+      list.appendChild(item);
+    });
+  }
 
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const text = userInput.value.trim();
-            if (!text) return;
+  function newChat(){
+    const chat = { id: uid(), title: 'New chat', messages: [] };
+    chats.push(chat);
+    activeChatId = chat.id;
+    saveChats(); saveActive();
+    renderChatList();
+    renderMessages();
+  }
 
-            if (!apiKey) {
-                alert('Please enter your OpenRouter API Key in ⚙️ Settings first!');
-                settingsModal.classList.remove('hidden');
-                return;
-            }
+  function selectChat(id){
+    activeChatId = id;
+    saveActive();
+    renderChatList();
+    renderMessages();
+  }
 
-            chatHistory.push({ role: 'user', content: text });
-            saveChatHistory();
-            renderChat();
+  function deleteChat(id){
+    chats = chats.filter(c => c.id !== id);
+    if(activeChatId === id){
+      activeChatId = chats.length ? chats[chats.length-1].id : null;
+    }
+    saveChats(); saveActive();
+    renderChatList();
+    renderMessages();
+  }
 
-            userInput.value = '';
-            userInput.style.height = 'auto';
-            setLoading(true);
+  function toggleSidebar(){
+    document.getElementById('sidebar').classList.toggle('collapsed');
+  }
 
-            try {
-                const messages = [
-                    { role: 'system', content: systemPrompt },
-                    ...chatHistory
-                ];
+  // ---------- Messages ----------
+  function renderMessages(){
+    const inner = document.getElementById('messages-inner');
+    const chat = getActiveChat();
+    document.getElementById('chat-title').textContent = chat ? (chat.title || 'New chat') : 'New chat';
+    inner.innerHTML = '';
 
-                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': window.location.href,
-                        'X-Title': 'BWG App'
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: messages
-                    })
-                });
+    if(!chat || chat.messages.length === 0){
+      inner.style.display = 'flex';
+      inner.style.height = '100%';
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = `<div class="logo-box">BWG</div><div>Start a conversation. Set your OpenRouter key in Settings first.</div>`;
+      inner.appendChild(empty);
+      return;
+    }
+    inner.style.display = 'flex';
+    inner.style.height = 'auto';
 
-                const data = await res.json();
+    chat.messages.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'msg ' + (m.role === 'user' ? 'user' : 'assistant');
+      div.innerHTML = `<div class="role">${m.role === 'user' ? 'You' : 'BWG'}</div><div class="bubble"></div>`;
+      div.querySelector('.bubble').textContent = m.content;
+      inner.appendChild(div);
+    });
+    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+  }
 
-                if (!res.ok) {
-                    throw new Error(data.error?.message || `API Error (${res.status})`);
-                }
+  function autoGrow(el){
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
 
-                const botReply = data.choices[0]?.message?.content || 'No response generated.';
-                chatHistory.push({ role: 'assistant', content: botReply });
-                saveChatHistory();
-                renderChat();
+  function handleKeydown(e){
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  }
 
-            } catch (err) {
-                chatHistory.push({ 
-                    role: 'assistant', 
-                    content: `⚠️ **Error:** ${err.message}\n\n*Tip: Check your API key or set the Model ID in settings to \`openrouter/free\`.*` 
-                });
-                saveChatHistory();
-                renderChat();
-            } finally {
-                setLoading(false);
-            }
-        });
+  async function sendMessage(){
+    const box = document.getElementById('input-box');
+    const text = box.value.trim();
+    if(!text) return;
 
-        function renderChat() {
-            chatWindow.innerHTML = '';
-            chatHistory.forEach((msg) => {
-                const isUser = msg.role === 'user';
-                const wrapper = document.createElement('div');
-                wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+    if(!settings.apiKey){
+      openSettings();
+      return;
+    }
 
-                const bubble = document.createElement('div');
-                bubble.className = isUser 
-                    ? 'bg-white text-black font-medium max-w-[85%] md:max-w-[75%] rounded-lg px-4 py-3 text-sm shadow-md' 
-                    : 'bg-zinc-950 border border-zinc-800 text-zinc-100 max-w-[85%] md:max-w-[75%] rounded-lg px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap';
+    let chat = getActiveChat();
+    if(!chat){
+      chat = { id: uid(), title: 'New chat', messages: [] };
+      chats.push(chat);
+      activeChatId = chat.id;
+    }
+    if(chat.messages.length === 0){
+      chat.title = text.slice(0, 40) + (text.length > 40 ? '…' : '');
+    }
+    chat.messages.push({ role: 'user', content: text });
+    box.value = '';
+    autoGrow(box);
+    saveChats(); saveActive();
+    renderChatList();
+    renderMessages();
 
-                bubble.innerHTML = formatMarkdown(msg.content);
-                wrapper.appendChild(bubble);
-                chatWindow.appendChild(wrapper);
-            });
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
+    const sendBtn = document.getElementById('send-btn');
+    sendBtn.disabled = true;
 
-        function saveChatHistory() {
-            localStorage.setItem('bwg_chat_history', JSON.stringify(chatHistory));
-        }
+    try{
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + settings.apiKey
+        },
+        body: JSON.stringify({
+          model: settings.model || 'openai/gpt-4o-mini',
+          messages: chat.messages.map(m => ({ role: m.role, content: m.content }))
+        })
+      });
+      const data = await res.json();
+      let reply;
+      if(data.error){
+        reply = 'Error: ' + (data.error.message || JSON.stringify(data.error));
+      } else {
+        reply = data.choices?.[0]?.message?.content || '(no response)';
+      }
+      chat.messages.push({ role: 'assistant', content: reply });
+    } catch(err){
+      chat.messages.push({ role: 'assistant', content: 'Request failed: ' + err.message });
+    }
 
-        function setLoading(loading) {
-            if (loading) {
-                typingIndicator.classList.remove('hidden');
-                sendBtn.disabled = true;
-            } else {
-                typingIndicator.classList.add('hidden');
-                sendBtn.disabled = false;
-            }
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
+    sendBtn.disabled = false;
+    saveChats();
+    renderMessages();
+  }
 
-        function formatMarkdown(text) {
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code class="bg-zinc-900 border border-zinc-800 px-1 py-0.5 rounded font-mono text-xs">$1</code>');
-        }
-    </script>
+  // ---------- Notepad ----------
+  const notepadText = document.getElementById('notepad-text');
+  notepadText.value = localStorage.getItem('bwg_notepad') || '';
+  notepadText.addEventListener('input', () => {
+    localStorage.setItem('bwg_notepad', notepadText.value);
+  });
+
+  function toggleNotepad(){
+    const pad = document.getElementById('notepad');
+    const btn = document.getElementById('notepad-toggle');
+    pad.classList.toggle('open');
+    btn.classList.toggle('active-toggle');
+  }
+
+  // ---------- Settings ----------
+  function openSettings(){
+    document.getElementById('api-key-input').value = settings.apiKey || '';
+    document.getElementById('model-input').value = settings.model || '';
+    document.getElementById('overlay').classList.add('open');
+  }
+  function closeSettings(){
+    document.getElementById('overlay').classList.remove('open');
+  }
+  function saveSettings(){
+    settings.apiKey = document.getElementById('api-key-input').value.trim();
+    settings.model = document.getElementById('model-input').value.trim();
+    localStorage.setItem('bwg_settings', JSON.stringify(settings));
+    closeSettings();
+  }
+
+  // ---------- Init ----------
+  if(chats.length === 0){
+    newChat();
+  } else {
+    if(!activeChatId || !chats.find(c => c.id === activeChatId)){
+      activeChatId = chats[chats.length-1].id;
+    }
+    renderChatList();
+    renderMessages();
+  }
+</script>
 </body>
-  </html>
+    </html>
+          
